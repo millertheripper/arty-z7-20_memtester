@@ -1,0 +1,5 @@
+build/
+*.xsa
+*.jou
+*.log
+*.str
