@@ -22,3 +22,4 @@ clean:
 	$(MAKE) -C $(HLS_PRJ_DIR) clean
 	$(MAKE) -C hw clean
 	$(MAKE) -C sw/vitis clean
+	@rm -rf *.str *.log *.jou .Xil

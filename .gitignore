@@ -1,6 +1,5 @@
 build/
-*.xsa
+*.str
 *.jou
 *.log
-*.str
 .Xil/
