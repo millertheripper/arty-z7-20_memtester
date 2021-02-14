@@ -9,6 +9,7 @@
 #include "xil_cache_l.h"
 #include "xuartps.h"
 #include "xaxicdma.h"
+#include "xhls_mem_tester.h"
 
 /* PRIVATE MACRO */
 #define SIZE_8_MB		0x00800000
@@ -43,6 +44,7 @@ static void mem_initialize(void);
 static void test_mem_cpu_linear(void);
 static void test_mem_cpu_random(void);
 static void test_mem_dma(void);
+static void test_mem_hls_random(void);
 
 /* PRIVATE DATA */
 XScuTimer timer_inst;
@@ -96,8 +98,7 @@ static void demo_print_menu(void)
 	xil_printf("5 - Run CPU memory performance test (linear)\n\r");
 	xil_printf("6 - Run CPU memory performance test (random)\n\r");
 	xil_printf("7 - Run DMA performance test\n\r");
-	//xil_printf("8 - Run HLS memory performance test (random)\n\r");
-	//xil_printf("9 - Run DMA memory performance test\n\r");
+	xil_printf("8 - Run HLS memory performance test (random)\n\r");
 	xil_printf("\n\r");
 	xil_printf("\n\r");
 	xil_printf("Enter a selection: ");
@@ -200,6 +201,9 @@ static void demo_run(void)
 		case '7':
 			test_mem_dma();
 			break;
+		case '8':
+			test_mem_hls_random();
+			break;
 		default:
 			break;
 		}
@@ -225,6 +229,37 @@ static void mem_initialize(void)
 	Xil_DCacheFlushRange((UINTPTR)start_addr, test_size);
     xil_printf("Done.\r\n");
     memory_is_initialized = 1;
+}
+
+static void test_mem_hls_random(void)
+{
+	static XHls_mem_tester hls_inst;
+	static XHls_mem_tester_Config *hls_conf;
+
+	if (!memory_is_initialized) {
+		mem_initialize();
+	}
+
+	xil_printf("\r\ntest_mem_hls_random: src:0x%08lx, size: %luMB .", start_addr, test_size/(1024*1024));
+
+	/* Initialize the HLS core with start address and test size */
+	hls_conf = XHls_mem_tester_LookupConfig(XPAR_HLS_MEM_TESTER_0_DEVICE_ID);
+	XHls_mem_tester_CfgInitialize(&hls_inst, hls_conf);
+	XHls_mem_tester_Set_addr(&hls_inst, start_addr);
+	XHls_mem_tester_Set_size(&hls_inst, test_size/sizeof(uint32_t));
+
+	timer_measure_start();
+	XHls_mem_tester_Start(&hls_inst);
+	/* Since we not use the interrupt signal line, poll for the HLS core to be ready */
+	while (!XHls_mem_tester_IsDone(&hls_inst)) {
+		usleep(1000*100);
+		xil_printf(".");
+	}
+	xil_printf("Done.\r\n");
+
+	timer_print_speed(timer_measure_stop(), test_size);
+
+	xil_printf("\r\n");
 }
 
 static void test_mem_dma(void)
@@ -256,10 +291,10 @@ static void test_mem_dma(void)
 	/* Since we did not provide a callback function, poll for the DMA transfer to be ready */
 	while (XAxiCdma_IsBusy(&dma_inst));
     xil_printf("Done.\r\n");
-	timer_print_speed(timer_measure_stop(), test_size);
+	timer_print_speed(timer_measure_stop(), test_size-1);
 
 	xil_printf("test_mem_cpu: Validating ... ");
-	if (memcmp((void *)start_addr, (void *)shadow_addr, test_size) == 0) {
+	if (memcmp((void *)start_addr, (void *)shadow_addr, test_size-1) == 0) {
 		xil_printf("OK\r\n");
 	}
 	else {
@@ -275,7 +310,6 @@ static void test_mem_cpu_linear(void)
 	if (!memory_is_initialized) {
 		mem_initialize();
 	}
-	Xil_DCacheFlushRange((UINTPTR)start_addr, test_size);
 
 	xil_printf("\r\ntest_mem_cpu_linear: src:0x%08lx, dst:0x%08lx, size: %luMB ... ", start_addr, shadow_addr, test_size/(1024*1024));
 	timer_measure_start();
@@ -296,6 +330,8 @@ static void test_mem_cpu_linear(void)
 		xil_printf("OK\r\n");
 	}
 	else {
+		printb("START Address", (void *)(start_addr+test_size-128), 128);
+		printb("START Address", (void *)(shadow_addr+test_size-128), 128);
 		xil_printf("FAIL\r\n");
 	}
 	xil_printf("\r\n");
@@ -306,8 +342,6 @@ static void test_mem_cpu_random(void)
 	if (!memory_is_initialized) {
 		mem_initialize();
 	}
-
-	Xil_DCacheFlushRange((UINTPTR)start_addr, test_size);
 
 	xil_printf("\r\ntest_mem_cpu_random: src:0x%08lx, dst:0x%08lx, size: %luMB ... ", start_addr, shadow_addr, test_size/(1024*1024));
 	timer_measure_start();
