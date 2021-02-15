@@ -124,9 +124,12 @@ set bCheckIPs 1
 if { $bCheckIPs == 1 } {
    set list_check_ips "\ 
 xilinx.com:ip:axi_cdma:4.1\
+xilinx.com:ip:axi_gpio:2.0\
 xilinx.com:hls:hls_mem_tester:1.0\
-xilinx.com:ip:processing_system7:5.5\
 xilinx.com:ip:proc_sys_reset:5.0\
+xilinx.com:ip:processing_system7:5.5\
+xilinx.com:ip:smartconnect:1.0\
+xilinx.com:ip:system_ila:1.1\
 "
 
    set list_ips_missing ""
@@ -205,22 +208,21 @@ proc create_root_design { parentCell } {
    CONFIG.C_M_AXI_MAX_BURST_LEN {64} \
  ] $axi_cdma_0
 
-  # Create instance: axi_interconnect_0, and set properties
-  set axi_interconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 axi_interconnect_0 ]
+  # Create instance: axi_gpio_0, and set properties
+  set axi_gpio_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_0 ]
   set_property -dict [ list \
-   CONFIG.NUM_MI {3} \
-   CONFIG.NUM_SI {1} \
- ] $axi_interconnect_0
-
-  # Create instance: axi_interconnect_2, and set properties
-  set axi_interconnect_2 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 axi_interconnect_2 ]
-  set_property -dict [ list \
-   CONFIG.NUM_MI {1} \
-   CONFIG.NUM_SI {2} \
- ] $axi_interconnect_2
+   CONFIG.C_ALL_OUTPUTS {1} \
+   CONFIG.C_GPIO_WIDTH {1} \
+ ] $axi_gpio_0
 
   # Create instance: hls_mem_tester_0, and set properties
   set hls_mem_tester_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:hls_mem_tester:1.0 hls_mem_tester_0 ]
+
+  # Create instance: proc_sys_reset_0, and set properties
+  set proc_sys_reset_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_0 ]
+  set_property -dict [ list \
+   CONFIG.C_AUX_RESET_HIGH {1} \
+ ] $proc_sys_reset_0
 
   # Create instance: processing_system7_0, and set properties
   set processing_system7_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7_0 ]
@@ -1025,26 +1027,49 @@ proc create_root_design { parentCell } {
   # Create instance: rst_ps7_0_125M, and set properties
   set rst_ps7_0_125M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_ps7_0_125M ]
 
+  # Create instance: smartconnect_0, and set properties
+  set smartconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0 ]
+
+  # Create instance: smartconnect_1, and set properties
+  set smartconnect_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_1 ]
+  set_property -dict [ list \
+   CONFIG.NUM_MI {4} \
+   CONFIG.NUM_SI {1} \
+ ] $smartconnect_1
+
+  # Create instance: system_ila_0, and set properties
+  set system_ila_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:system_ila:1.1 system_ila_0 ]
+  set_property -dict [ list \
+   CONFIG.C_BRAM_CNT {30} \
+   CONFIG.C_DATA_DEPTH {4096} \
+ ] $system_ila_0
+
   # Create interface connections
-  connect_bd_intf_net -intf_net axi_cdma_0_M_AXI [get_bd_intf_pins axi_cdma_0/M_AXI] [get_bd_intf_pins axi_interconnect_2/S00_AXI]
-  connect_bd_intf_net -intf_net axi_interconnect_0_M00_AXI [get_bd_intf_pins axi_interconnect_0/M00_AXI] [get_bd_intf_pins hls_mem_tester_0/s_axi_SLAVE_ARG]
-  connect_bd_intf_net -intf_net axi_interconnect_0_M01_AXI [get_bd_intf_pins axi_interconnect_0/M01_AXI] [get_bd_intf_pins hls_mem_tester_0/s_axi_control]
-  connect_bd_intf_net -intf_net axi_interconnect_0_M02_AXI [get_bd_intf_pins axi_cdma_0/S_AXI_LITE] [get_bd_intf_pins axi_interconnect_0/M02_AXI]
-  connect_bd_intf_net -intf_net axi_interconnect_2_M00_AXI [get_bd_intf_pins axi_interconnect_2/M00_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP0]
-  connect_bd_intf_net -intf_net hls_mem_tester_0_m_axi_MASTER [get_bd_intf_pins axi_interconnect_2/S01_AXI] [get_bd_intf_pins hls_mem_tester_0/m_axi_MASTER]
+  connect_bd_intf_net -intf_net axi_cdma_0_M_AXI [get_bd_intf_pins axi_cdma_0/M_AXI] [get_bd_intf_pins smartconnect_0/S00_AXI]
+  connect_bd_intf_net -intf_net axi_interconnect_2_M00_AXI [get_bd_intf_pins processing_system7_0/S_AXI_HP0] [get_bd_intf_pins smartconnect_0/M00_AXI]
+connect_bd_intf_net -intf_net [get_bd_intf_nets axi_interconnect_2_M00_AXI] [get_bd_intf_pins smartconnect_0/M00_AXI] [get_bd_intf_pins system_ila_0/SLOT_0_AXI]
+  connect_bd_intf_net -intf_net hls_mem_tester_0_m_axi_MASTER [get_bd_intf_pins hls_mem_tester_0/m_axi_MASTER] [get_bd_intf_pins smartconnect_0/S01_AXI]
   connect_bd_intf_net -intf_net processing_system7_0_DDR [get_bd_intf_ports DDR] [get_bd_intf_pins processing_system7_0/DDR]
   connect_bd_intf_net -intf_net processing_system7_0_FIXED_IO [get_bd_intf_ports FIXED_IO] [get_bd_intf_pins processing_system7_0/FIXED_IO]
-  connect_bd_intf_net -intf_net processing_system7_0_M_AXI_GP0 [get_bd_intf_pins axi_interconnect_0/S00_AXI] [get_bd_intf_pins processing_system7_0/M_AXI_GP0]
+  connect_bd_intf_net -intf_net processing_system7_0_M_AXI_GP0 [get_bd_intf_pins processing_system7_0/M_AXI_GP0] [get_bd_intf_pins smartconnect_1/S00_AXI]
+  connect_bd_intf_net -intf_net smartconnect_1_M00_AXI [get_bd_intf_pins axi_cdma_0/S_AXI_LITE] [get_bd_intf_pins smartconnect_1/M00_AXI]
+  connect_bd_intf_net -intf_net smartconnect_1_M01_AXI [get_bd_intf_pins hls_mem_tester_0/s_axi_SLAVE_ARG] [get_bd_intf_pins smartconnect_1/M01_AXI]
+  connect_bd_intf_net -intf_net smartconnect_1_M02_AXI [get_bd_intf_pins hls_mem_tester_0/s_axi_control] [get_bd_intf_pins smartconnect_1/M02_AXI]
+  connect_bd_intf_net -intf_net smartconnect_1_M03_AXI [get_bd_intf_pins axi_gpio_0/S_AXI] [get_bd_intf_pins smartconnect_1/M03_AXI]
 
   # Create port connections
-  connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins axi_cdma_0/m_axi_aclk] [get_bd_pins axi_cdma_0/s_axi_lite_aclk] [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins axi_interconnect_0/M00_ACLK] [get_bd_pins axi_interconnect_0/M01_ACLK] [get_bd_pins axi_interconnect_0/M02_ACLK] [get_bd_pins axi_interconnect_0/S00_ACLK] [get_bd_pins axi_interconnect_2/ACLK] [get_bd_pins axi_interconnect_2/M00_ACLK] [get_bd_pins axi_interconnect_2/S00_ACLK] [get_bd_pins axi_interconnect_2/S01_ACLK] [get_bd_pins hls_mem_tester_0/ap_clk] [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK] [get_bd_pins rst_ps7_0_125M/slowest_sync_clk]
+  connect_bd_net -net axi_gpio_0_gpio_io_o [get_bd_pins axi_gpio_0/gpio_io_o] [get_bd_pins proc_sys_reset_0/aux_reset_in]
+  connect_bd_net -net proc_sys_reset_0_peripheral_aresetn [get_bd_pins hls_mem_tester_0/ap_rst_n] [get_bd_pins proc_sys_reset_0/peripheral_aresetn]
+  connect_bd_net -net processing_system7_0_FCLK_CLK0 [get_bd_pins axi_cdma_0/m_axi_aclk] [get_bd_pins axi_cdma_0/s_axi_lite_aclk] [get_bd_pins axi_gpio_0/s_axi_aclk] [get_bd_pins hls_mem_tester_0/ap_clk] [get_bd_pins proc_sys_reset_0/slowest_sync_clk] [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/M_AXI_GP0_ACLK] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK] [get_bd_pins rst_ps7_0_125M/slowest_sync_clk] [get_bd_pins smartconnect_0/aclk] [get_bd_pins smartconnect_1/aclk] [get_bd_pins system_ila_0/clk]
   connect_bd_net -net processing_system7_0_FCLK_RESET0_N [get_bd_pins processing_system7_0/FCLK_RESET0_N] [get_bd_pins rst_ps7_0_125M/ext_reset_in]
-  connect_bd_net -net rst_ps7_0_125M_peripheral_aresetn [get_bd_pins axi_cdma_0/s_axi_lite_aresetn] [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins axi_interconnect_0/M00_ARESETN] [get_bd_pins axi_interconnect_0/M01_ARESETN] [get_bd_pins axi_interconnect_0/M02_ARESETN] [get_bd_pins axi_interconnect_0/S00_ARESETN] [get_bd_pins axi_interconnect_2/ARESETN] [get_bd_pins axi_interconnect_2/M00_ARESETN] [get_bd_pins axi_interconnect_2/S00_ARESETN] [get_bd_pins axi_interconnect_2/S01_ARESETN] [get_bd_pins hls_mem_tester_0/ap_rst_n] [get_bd_pins rst_ps7_0_125M/peripheral_aresetn]
+  connect_bd_net -net rst_ps7_0_125M_peripheral_aresetn [get_bd_pins axi_cdma_0/s_axi_lite_aresetn] [get_bd_pins axi_gpio_0/s_axi_aresetn] [get_bd_pins proc_sys_reset_0/ext_reset_in] [get_bd_pins rst_ps7_0_125M/peripheral_aresetn] [get_bd_pins smartconnect_0/aresetn] [get_bd_pins smartconnect_1/aresetn] [get_bd_pins system_ila_0/resetn]
 
   # Create address segments
   assign_bd_address -offset 0x00000000 -range 0x20000000 -target_address_space [get_bd_addr_spaces axi_cdma_0/Data] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] -force
+  assign_bd_address -offset 0x00000000 -range 0x20000000 -target_address_space [get_bd_addr_spaces axi_cdma_0/Data] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] -force
   assign_bd_address -offset 0x00000000 -range 0x20000000 -target_address_space [get_bd_addr_spaces hls_mem_tester_0/Data_m_axi_MASTER] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] -force
   assign_bd_address -offset 0x44A00000 -range 0x00010000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs axi_cdma_0/S_AXI_LITE/Reg] -force
+  assign_bd_address -offset 0x40020000 -range 0x00010000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs axi_gpio_0/S_AXI/Reg] -force
   assign_bd_address -offset 0x40000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs hls_mem_tester_0/s_axi_SLAVE_ARG/Reg] -force
   assign_bd_address -offset 0x40010000 -range 0x00010000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs hls_mem_tester_0/s_axi_control/Reg] -force
 
@@ -1052,32 +1077,34 @@ proc create_root_design { parentCell } {
   regenerate_bd_layout -layout_string {
    "ActiveEmotionalView":"Default View",
    "Default View_ScaleFactor":"1.0",
-   "Default View_TopLeft":"-316,-36",
+   "Default View_TopLeft":"-91,-46",
    "ExpandedHierarchyInLayout":"",
    "guistr":"# # String gsaved with Nlview 7.0r4  2019-12-20 bk=1.5203 VDI=41 GEI=36 GUI=JA:9.0 TLS
 #  -string -flagsOSRD
-preplace port DDR -pg 1 -lvl 6 -x 1960 -y 300 -defaultsOSRD
-preplace port FIXED_IO -pg 1 -lvl 6 -x 1960 -y 320 -defaultsOSRD
-preplace inst axi_cdma_0 -pg 1 -lvl 3 -x 940 -y 390 -defaultsOSRD
-preplace inst hls_mem_tester_0 -pg 1 -lvl 3 -x 940 -y 90 -defaultsOSRD
-preplace inst processing_system7_0 -pg 1 -lvl 5 -x 1700 -y 340 -defaultsOSRD
-preplace inst rst_ps7_0_125M -pg 1 -lvl 1 -x 210 -y 600 -defaultsOSRD
-preplace inst axi_interconnect_0 -pg 1 -lvl 2 -x 550 -y 340 -defaultsOSRD
-preplace inst axi_interconnect_2 -pg 1 -lvl 4 -x 1320 -y 330 -defaultsOSRD
-preplace netloc processing_system7_0_FCLK_CLK0 1 0 6 20 490 390 510 720 280 1170 490 1480 440 1920
-preplace netloc processing_system7_0_FCLK_RESET0_N 1 0 6 30 500 NJ 500 730J 300 1140J 480 1470J 240 1930
-preplace netloc rst_ps7_0_125M_peripheral_aresetn 1 1 3 400 520 740 290 1160
-preplace netloc processing_system7_0_DDR 1 5 1 NJ 300
-preplace netloc processing_system7_0_FIXED_IO 1 5 1 NJ 320
-preplace netloc processing_system7_0_M_AXI_GP0 1 1 5 390 180 NJ 180 NJ 180 NJ 180 1940
-preplace netloc axi_interconnect_0_M00_AXI 1 2 1 700 60n
-preplace netloc axi_interconnect_0_M01_AXI 1 2 1 710 80n
-preplace netloc axi_interconnect_0_M02_AXI 1 2 1 N 360
-preplace netloc axi_cdma_0_M_AXI 1 3 1 1150 240n
-preplace netloc axi_interconnect_2_M00_AXI 1 4 1 N 330
-preplace netloc hls_mem_tester_0_m_axi_MASTER 1 3 1 1170 80n
-levelinfo -pg 1 0 210 550 940 1320 1700 1960
-pagesize -pg 1 -db -bbox -sgen 0 0 2080 700
+preplace port DDR -pg 1 -lvl 7 -x 2350 -y 70 -defaultsOSRD
+preplace port FIXED_IO -pg 1 -lvl 7 -x 2350 -y 90 -defaultsOSRD
+preplace inst axi_cdma_0 -pg 1 -lvl 3 -x 990 -y 320 -defaultsOSRD
+preplace inst processing_system7_0 -pg 1 -lvl 6 -x 2100 -y 110 -defaultsOSRD
+preplace inst rst_ps7_0_125M -pg 1 -lvl 1 -x 290 -y 280 -defaultsOSRD
+preplace inst system_ila_0 -pg 1 -lvl 6 -x 2100 -y 390 -defaultsOSRD
+preplace inst smartconnect_0 -pg 1 -lvl 5 -x 1720 -y 320 -defaultsOSRD
+preplace inst smartconnect_1 -pg 1 -lvl 2 -x 640 -y 100 -defaultsOSRD
+preplace inst axi_gpio_0 -pg 1 -lvl 2 -x 640 -y 440 -defaultsOSRD
+preplace inst proc_sys_reset_0 -pg 1 -lvl 3 -x 990 -y 610 -defaultsOSRD
+preplace inst hls_mem_tester_0 -pg 1 -lvl 4 -x 1370 -y 60 -defaultsOSRD
+preplace netloc processing_system7_0_FCLK_CLK0 1 0 7 20 390 470 220 810 220 N 220 1580 220 1870 0 2330
+preplace netloc processing_system7_0_FCLK_RESET0_N 1 0 7 30 380 490J 210 NJ 210 NJ 210 N 210 NJ 210 2320
+preplace netloc rst_ps7_0_125M_peripheral_aresetn 1 1 5 480 230 790 230 N 230 1570 230 1860J
+preplace netloc axi_gpio_0_gpio_io_o 1 2 1 780 450n
+preplace netloc processing_system7_0_M_AXI_GP0 1 1 6 470 10 NJ 10 1170J 150 1580 10 NJ 10 2320
+preplace netloc smartconnect_1_M00_AXI 1 2 1 800 70n
+preplace netloc axi_interconnect_2_M00_AXI 1 5 1 1880 100n
+preplace netloc processing_system7_0_DDR 1 6 1 NJ 70
+preplace netloc processing_system7_0_FIXED_IO 1 6 1 NJ 90
+preplace netloc axi_cdma_0_M_AXI 1 3 2 1170 290 N
+preplace netloc smartconnect_1_M03_AXI 1 1 2 500 190 790
+levelinfo -pg 1 0 290 640 990 1370 1720 2100 2350
+pagesize -pg 1 -db -bbox -sgen 0 -200 2470 1370
 "
 }
 

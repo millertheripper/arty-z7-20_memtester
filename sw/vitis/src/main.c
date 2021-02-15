@@ -10,6 +10,7 @@
 #include "xuartps.h"
 #include "xaxicdma.h"
 #include "xhls_mem_tester.h"
+#include "xgpio.h"
 
 /* PRIVATE MACRO */
 #define SIZE_8_MB		0x00800000
@@ -233,8 +234,16 @@ static void mem_initialize(void)
 
 static void test_mem_hls_random(void)
 {
-	static XHls_mem_tester hls_inst;
-	static XHls_mem_tester_Config *hls_conf;
+	XHls_mem_tester hls_inst;
+	XHls_mem_tester_Config *hls_conf;
+	XGpio gpio_inst;
+
+	/* Reset the HLS IP with GPIO pin */
+	XGpio_Initialize(&gpio_inst, XPAR_AXI_GPIO_0_DEVICE_ID);
+	XGpio_DiscreteWrite(&gpio_inst, 1, 0x1);
+	usleep(1000*100);
+	XGpio_DiscreteWrite(&gpio_inst, 1, 0x0);
+	usleep(1000*100);
 
 	if (!memory_is_initialized) {
 		mem_initialize();
@@ -243,6 +252,7 @@ static void test_mem_hls_random(void)
 	xil_printf("\r\ntest_mem_hls_random: src:0x%08lx, size: %luMB .", start_addr, test_size/(1024*1024));
 
 	/* Initialize the HLS core with start address and test size */
+
 	hls_conf = XHls_mem_tester_LookupConfig(XPAR_HLS_MEM_TESTER_0_DEVICE_ID);
 	XHls_mem_tester_CfgInitialize(&hls_inst, hls_conf);
 	XHls_mem_tester_Set_addr(&hls_inst, start_addr);
