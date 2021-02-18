@@ -9,7 +9,7 @@
 #include "xil_cache_l.h"
 #include "xuartps.h"
 #include "xaxicdma.h"
-#include "xhls_mem_tester.h"
+#include "xhls_mem_perf_tester.h"
 #include "xgpio.h"
 
 /* PRIVATE MACRO */
@@ -46,6 +46,7 @@ static void test_mem_cpu_linear(void);
 static void test_mem_cpu_random(void);
 static void test_mem_dma(void);
 static void test_mem_hls_random(void);
+static uint64_t mem_calc_checksum(uint32_t addr, uint32_t size);
 
 /* PRIVATE DATA */
 XScuTimer timer_inst;
@@ -232,11 +233,27 @@ static void mem_initialize(void)
     memory_is_initialized = 1;
 }
 
+static uint64_t mem_calc_checksum(uint32_t addr, uint32_t size)
+{
+	uint32_t *ptr = (uint32_t *)addr;
+	uint32_t next = 0;
+	uint64_t sum = 0;
+
+	for (uint32_t i=0; i<size; i++) {
+		next = ptr[next];
+		sum += next;
+	}
+	Xil_DCacheFlushRange((UINTPTR)start_addr, test_size);
+	return sum;
+}
+
 static void test_mem_hls_random(void)
 {
-	XHls_mem_tester hls_inst;
-	XHls_mem_tester_Config *hls_conf;
+	XHls_mem_perf_tester hls_inst;
+	XHls_mem_perf_tester_Config *hls_conf;
 	XGpio gpio_inst;
+	uint64_t checksum_mem = 0;
+	uint64_t checksum_hls = 0;
 
 	/* Reset the HLS IP with GPIO pin */
 	XGpio_Initialize(&gpio_inst, XPAR_AXI_GPIO_0_DEVICE_ID);
@@ -249,25 +266,34 @@ static void test_mem_hls_random(void)
 		mem_initialize();
 	}
 
-	xil_printf("\r\ntest_mem_hls_random: src:0x%08lx, size: %luMB .", start_addr, test_size/(1024*1024));
+	xil_printf("\r\nhls_mem_perf_tester: random: src:0x%08lx, size: %luMB .", start_addr, test_size/(1024*1024));
 
 	/* Initialize the HLS core with start address and test size */
-
-	hls_conf = XHls_mem_tester_LookupConfig(XPAR_HLS_MEM_TESTER_0_DEVICE_ID);
-	XHls_mem_tester_CfgInitialize(&hls_inst, hls_conf);
-	XHls_mem_tester_Set_addr(&hls_inst, start_addr);
-	XHls_mem_tester_Set_size(&hls_inst, test_size/sizeof(uint32_t));
+	hls_conf = XHls_mem_perf_tester_LookupConfig(XPAR_HLS_MEM_PERF_TESTER_0_DEVICE_ID);
+	XHls_mem_perf_tester_CfgInitialize(&hls_inst, hls_conf);
+	XHls_mem_perf_tester_Set_addr(&hls_inst, start_addr);
+	XHls_mem_perf_tester_Set_size(&hls_inst, test_size/sizeof(uint32_t));
 
 	timer_measure_start();
-	XHls_mem_tester_Start(&hls_inst);
+	XHls_mem_perf_tester_Start(&hls_inst);
 	/* Since we not use the interrupt signal line, poll for the HLS core to be ready */
-	while (!XHls_mem_tester_IsDone(&hls_inst)) {
+	while (!XHls_mem_perf_tester_IsDone(&hls_inst)) {
 		usleep(1000*100);
 		xil_printf(".");
 	}
 	xil_printf("Done.\r\n");
-
 	timer_print_speed(timer_measure_stop(), test_size);
+
+	xil_printf("Validating .. ");
+	checksum_mem = mem_calc_checksum(start_addr, test_size/sizeof(uint32_t));
+	checksum_hls = XHls_mem_perf_tester_Get_return(&hls_inst);
+
+	if (checksum_mem != checksum_hls) {
+		xil_printf("\r\nChecksum error. 0x%llx != 0x%llx\r\n", checksum_mem, checksum_hls);
+	}
+	else {
+		xil_printf("OK.\r\n");
+	}
 
 	xil_printf("\r\n");
 }

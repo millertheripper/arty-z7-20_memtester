@@ -1,4 +1,4 @@
-[submodule "hw/source/ip_cores/hls_mem_perf_tester"]
+[submodule "hls_mem_perf_tester"]
 	branch = master
 	path = hw/source/ip_cores/hls_mem_perf_tester
 	url = git@github.com:millertheripper/hls_mem_perf_tester.git
