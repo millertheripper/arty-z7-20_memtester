@@ -1040,7 +1040,7 @@ proc create_root_design { parentCell } {
   # Create instance: system_ila_0, and set properties
   set system_ila_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:system_ila:1.1 system_ila_0 ]
   set_property -dict [ list \
-   CONFIG.C_BRAM_CNT {30} \
+   CONFIG.C_BRAM_CNT {23.5} \
    CONFIG.C_DATA_DEPTH {4096} \
    CONFIG.C_NUM_MONITOR_SLOTS {2} \
    CONFIG.C_SLOT {1} \
@@ -1088,27 +1088,31 @@ connect_bd_intf_net -intf_net [get_bd_intf_nets hls_mem_perf_tester_0_m_axi_MAST
 preplace port DDR -pg 1 -lvl 7 -x 2400 -y 70 -defaultsOSRD
 preplace port FIXED_IO -pg 1 -lvl 7 -x 2400 -y 90 -defaultsOSRD
 preplace inst axi_cdma_0 -pg 1 -lvl 3 -x 1040 -y 320 -defaultsOSRD
+preplace inst axi_gpio_0 -pg 1 -lvl 2 -x 690 -y 440 -defaultsOSRD
+preplace inst hls_mem_perf_tester_0 -pg 1 -lvl 4 -x 1420 -y 60 -defaultsOSRD
+preplace inst proc_sys_reset_0 -pg 1 -lvl 3 -x 1040 -y 610 -defaultsOSRD
 preplace inst processing_system7_0 -pg 1 -lvl 6 -x 2150 -y 110 -defaultsOSRD
 preplace inst rst_ps7_0_125M -pg 1 -lvl 1 -x 340 -y 280 -defaultsOSRD
-preplace inst system_ila_0 -pg 1 -lvl 6 -x 2150 -y 390 -defaultsOSRD
-preplace inst smartconnect_0 -pg 1 -lvl 5 -x 1770 -y 320 -defaultsOSRD
+preplace inst smartconnect_0 -pg 1 -lvl 5 -x 1780 -y 320 -defaultsOSRD
 preplace inst smartconnect_1 -pg 1 -lvl 2 -x 690 -y 100 -defaultsOSRD
-preplace inst axi_gpio_0 -pg 1 -lvl 2 -x 690 -y 440 -defaultsOSRD
-preplace inst proc_sys_reset_0 -pg 1 -lvl 3 -x 1040 -y 610 -defaultsOSRD
-preplace inst hls_mem_perf_tester_0 -pg 1 -lvl 4 -x 1420 -y 60 -defaultsOSRD
-preplace netloc processing_system7_0_FCLK_CLK0 1 0 7 20 390 520 220 860 220 N 220 1630 220 1920 0 2380
-preplace netloc processing_system7_0_FCLK_RESET0_N 1 0 7 30 380 540J 210 NJ 210 NJ 210 N 210 NJ 210 2370
-preplace netloc rst_ps7_0_125M_peripheral_aresetn 1 1 5 530 230 840 230 N 230 1620 230 1910J
+preplace inst system_ila_0 -pg 1 -lvl 6 -x 2150 -y 390 -defaultsOSRD
 preplace netloc axi_gpio_0_gpio_io_o 1 2 1 830 450n
-preplace netloc processing_system7_0_FIXED_IO 1 6 1 NJ 90
-preplace netloc processing_system7_0_DDR 1 6 1 NJ 70
-preplace netloc axi_cdma_0_M_AXI 1 3 2 1220 290 N
-preplace netloc smartconnect_1_M03_AXI 1 1 2 550 190 840
-preplace netloc axi_interconnect_2_M00_AXI 1 5 1 1930 100n
+preplace netloc proc_sys_reset_0_peripheral_aresetn 1 3 1 1230 90n
+preplace netloc processing_system7_0_FCLK_CLK0 1 0 7 20 390 510 220 860 220 1220 220 1630 210 1940 0 2360
+preplace netloc processing_system7_0_FCLK_RESET0_N 1 0 7 30 380 530J 210 NJ 210 NJ 210 1620 200 1950J 210 2350
+preplace netloc rst_ps7_0_125M_peripheral_aresetn 1 1 5 520 230 840 230 N 230 1640 220 1910J
+preplace netloc axi_cdma_0_M_AXI 1 3 3 1240 290 1650 230 1920
+preplace netloc processing_system7_0_M_AXI_GP0 1 1 6 510 10 NJ 10 1210J 150 1600 10 NJ 10 2350
+preplace netloc smartconnect_1_M02_AXI 1 2 2 860 50 NJ
 preplace netloc smartconnect_1_M00_AXI 1 2 1 850 70n
-preplace netloc processing_system7_0_M_AXI_GP0 1 1 6 520 10 NJ 10 1220J 150 1630 10 NJ 10 2370
-levelinfo -pg 1 0 340 690 1040 1420 1770 2150 2400
-pagesize -pg 1 -db -bbox -sgen 0 -200 2520 1370
+preplace netloc smartconnect_1_M01_AXI 1 2 2 840 30 NJ
+preplace netloc smartconnect_1_M03_AXI 1 1 2 540 190 840
+preplace netloc processing_system7_0_FIXED_IO 1 6 1 NJ 90
+preplace netloc axi_interconnect_2_M00_AXI 1 5 1 1930 100n
+preplace netloc hls_mem_perf_tester_0_m_axi_MASTER 1 4 2 1610 410 1950J
+preplace netloc processing_system7_0_DDR 1 6 1 NJ 70
+levelinfo -pg 1 0 340 690 1040 1420 1780 2150 2400
+pagesize -pg 1 -db -bbox -sgen 0 -200 2510 1370
 "
 }
 

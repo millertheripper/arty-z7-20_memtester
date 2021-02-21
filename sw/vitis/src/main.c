@@ -16,6 +16,8 @@
 #define SIZE_8_MB		0x00800000
 #define SIZE_64_MB		SIZE_8_MB*8
 #define SIZE_128_MB		SIZE_8_MB*16
+#define SIZE_256_MB		SIZE_8_MB*32
+
 //#define MEM_MASE_0_MB	0x00000000
 #define MEM_BASE_64_MB	0x04000000
 #define MEM_BASE_128_MB	MEM_BASE_64_MB*2
@@ -42,11 +44,10 @@ static void demo_run(void);
 static void cache_toggle_disable(uint32_t cache_type);
 static void test_size_toggle(void);
 static void mem_initialize(void);
-static void test_mem_cpu_linear(void);
-static void test_mem_cpu_random(void);
+static void test_mem_cpu(void);
+uint64_t test_mem_cpu_random(void);
 static void test_mem_dma(void);
-static void test_mem_hls_random(void);
-static uint64_t mem_calc_checksum(uint32_t addr, uint32_t size);
+uint64_t test_mem_hls_random(void);
 
 /* PRIVATE DATA */
 XScuTimer timer_inst;
@@ -97,10 +98,10 @@ static void demo_print_menu(void)
 	xil_printf("2 - Enable/Disable L2 Data Cache\n\r");
 	xil_printf("3 - Change test data size\n\r");
 	xil_printf("4 - Initialize memory with random data\n\r");
-	xil_printf("5 - Run CPU memory performance test (linear)\n\r");
+	xil_printf("5 - Run CPU memory performance test (memcpy)\n\r");
 	xil_printf("6 - Run CPU memory performance test (random)\n\r");
-	xil_printf("7 - Run DMA performance test\n\r");
-	xil_printf("8 - Run HLS memory performance test (random)\n\r");
+	xil_printf("7 - Run FPGA (DMA) memory performance test (memcpy)\n\r");
+	xil_printf("8 - Run FPGA (HLS) memory performance test (random)\n\r");
 	xil_printf("\n\r");
 	xil_printf("\n\r");
 	xil_printf("Enter a selection: ");
@@ -119,9 +120,6 @@ static void test_size_toggle(void)
 		break;
 	case 1:
 		test_size = SIZE_64_MB;
-		break;
-	case 2:
-		test_size = SIZE_128_MB;
 		break;
 	default:
 		select_size = 0;
@@ -195,7 +193,7 @@ static void demo_run(void)
 			mem_initialize();
 			break;
 		case '5':
-			test_mem_cpu_linear();
+			test_mem_cpu();
 			break;
 		case '6':
 			test_mem_cpu_random();
@@ -217,43 +215,32 @@ static void demo_run(void)
 static void mem_initialize(void)
 {
 	srand(XScuTimer_GetCounterValue(&timer_inst));
-	xil_printf("\r\nmem_initialize: src:0x%08lx, size: %luMB, random values (seed=%u) ... ", start_addr, test_size/(1024*1024), XScuTimer_GetCounterValue(&timer_inst));
-	/* Initialize memory with random numbers in the range of test_size.
-	 * Add start_addr as offset. Memory contents will reused for random speed test
-	*/
-	volatile uint32_t *ptr = (uint32_t *)start_addr;
+	xil_printf("\r\nmem_initialize: src:0x%08lx, size: %luMB\r\n", start_addr, test_size/(1024*1024));
 
+	/* Clear memory to 0 */
+	memset((void *)start_addr, 0x00000000, test_size);
+	memset((void *)shadow_addr, 0x00000000, test_size);
+	Xil_DCacheFlushRange((UINTPTR)start_addr, SIZE_256_MB);
+
+	volatile uint32_t *ptr = (uint32_t *)start_addr;
 	for (uint32_t i=0; i<(test_size/sizeof(uint32_t)); i++) {
 		uint32_t val = rand()%(test_size/sizeof(uint32_t));
+		//uint32_t val = i+1;
 		*ptr++ = val;
+		//xil_printf("val(%08u)=%08u\r\n", (uint)i, (uint)val);
 	}
 
 	Xil_DCacheFlushRange((UINTPTR)start_addr, test_size);
-    xil_printf("Done.\r\n");
+    xil_printf("  Done.\r\n");
     memory_is_initialized = 1;
 }
 
-static uint64_t mem_calc_checksum(uint32_t addr, uint32_t size)
-{
-	uint32_t *ptr = (uint32_t *)addr;
-	uint32_t next = 0;
-	uint64_t sum = 0;
-
-	for (uint32_t i=0; i<size; i++) {
-		next = ptr[next];
-		sum += next;
-	}
-	Xil_DCacheFlushRange((UINTPTR)start_addr, test_size);
-	return sum;
-}
-
-static void test_mem_hls_random(void)
+uint64_t test_mem_hls_random(void)
 {
 	XHls_mem_perf_tester hls_inst;
 	XHls_mem_perf_tester_Config *hls_conf;
 	XGpio gpio_inst;
-	uint64_t checksum_mem = 0;
-	uint64_t checksum_hls = 0;
+
 
 	/* Reset the HLS IP with GPIO pin */
 	XGpio_Initialize(&gpio_inst, XPAR_AXI_GPIO_0_DEVICE_ID);
@@ -266,13 +253,13 @@ static void test_mem_hls_random(void)
 		mem_initialize();
 	}
 
-	xil_printf("\r\nhls_mem_perf_tester: random: src:0x%08lx, size: %luMB .", start_addr, test_size/(1024*1024));
+	xil_printf("\r\nhls_mem_perf_tester: src:0x%08lx, size: %luMB .", start_addr, test_size/(1024*1024));
 
 	/* Initialize the HLS core with start address and test size */
 	hls_conf = XHls_mem_perf_tester_LookupConfig(XPAR_HLS_MEM_PERF_TESTER_0_DEVICE_ID);
 	XHls_mem_perf_tester_CfgInitialize(&hls_inst, hls_conf);
 	XHls_mem_perf_tester_Set_addr(&hls_inst, start_addr);
-	XHls_mem_perf_tester_Set_size(&hls_inst, test_size/sizeof(uint32_t));
+	XHls_mem_perf_tester_Set_size(&hls_inst, test_size);
 
 	timer_measure_start();
 	XHls_mem_perf_tester_Start(&hls_inst);
@@ -281,21 +268,12 @@ static void test_mem_hls_random(void)
 		usleep(1000*100);
 		xil_printf(".");
 	}
-	xil_printf("Done.\r\n");
+
+	uint64_t checksum = XHls_mem_perf_tester_Get_return(&hls_inst);
+    xil_printf("\r\n  Done. Checksum: %u\r\n", (uint)checksum);
 	timer_print_speed(timer_measure_stop(), test_size);
-
-	xil_printf("Validating .. ");
-	checksum_mem = mem_calc_checksum(start_addr, test_size/sizeof(uint32_t));
-	checksum_hls = XHls_mem_perf_tester_Get_return(&hls_inst);
-
-	if (checksum_mem != checksum_hls) {
-		xil_printf("\r\nChecksum error. 0x%llx != 0x%llx\r\n", checksum_mem, checksum_hls);
-	}
-	else {
-		xil_printf("OK.\r\n");
-	}
-
 	xil_printf("\r\n");
+	return checksum;
 }
 
 static void test_mem_dma(void)
@@ -311,7 +289,7 @@ static void test_mem_dma(void)
 	dma_conf = XAxiCdma_LookupConfig(XPAR_AXI_CDMA_0_DEVICE_ID);
 	XAxiCdma_CfgInitialize(&dma_inst, dma_conf, XPAR_AXI_CDMA_0_BASEADDR);
 
-	xil_printf("\r\ntest_mem_dma: src:0x%08lx, dst:0x%08lx, size: %luMB ... ", start_addr, shadow_addr, test_size/(1024*1024));
+	xil_printf("\r\ntest_mem_dma (memcpy): src:0x%08lx, dst:0x%08lx, size: %luMB ... ", start_addr, shadow_addr, test_size/(1024*1024));
 
 	/* Start the DMA transfer, abort in case of error */
 	timer_measure_start();
@@ -326,77 +304,78 @@ static void test_mem_dma(void)
 
 	/* Since we did not provide a callback function, poll for the DMA transfer to be ready */
 	while (XAxiCdma_IsBusy(&dma_inst));
-    xil_printf("Done.\r\n");
+    xil_printf("  Done.\r\n");
 	timer_print_speed(timer_measure_stop(), test_size-1);
 
-	xil_printf("test_mem_cpu: Validating ... ");
+	xil_printf("  Validating ... ");
 	if (memcmp((void *)start_addr, (void *)shadow_addr, test_size-1) == 0) {
-		xil_printf("OK\r\n");
+		xil_printf("OK.\r\n");
 	}
 	else {
 		printb("START Address", (void *)(start_addr+test_size-128), 128);
 		printb("START Address", (void *)(shadow_addr+test_size-128), 128);
-		xil_printf("FAIL\r\n");
+		xil_printf("FAIL.\r\n");
 	}
 	xil_printf("\r\n");
 }
 
-static void test_mem_cpu_linear(void)
+static void test_mem_cpu(void)
 {
 	if (!memory_is_initialized) {
 		mem_initialize();
 	}
 
-	xil_printf("\r\ntest_mem_cpu_linear: src:0x%08lx, dst:0x%08lx, size: %luMB ... ", start_addr, shadow_addr, test_size/(1024*1024));
+	xil_printf("\r\ntest_mem_cpu (memcpy): src:0x%08lx, dst:0x%08lx, size: %luMB ... ", start_addr, shadow_addr, test_size/(1024*1024));
 	timer_measure_start();
 
-	/* Copy data in 32 bit chunks to destination (shadow) address */
+	/* Copy data from start to shadow address */
 	volatile uint32_t *src = (uint32_t *)start_addr;
 	volatile uint32_t *dst = (uint32_t *)shadow_addr;
-	uint32_t i = 0;
-	for (i=0; i<(test_size/sizeof(uint32_t)); i++) {
+
+	for (uint32_t i=0; i<(test_size/sizeof(uint32_t)); i++) {
 		dst[i] = src[i];
 	}
 
-    xil_printf("Done.\r\n");
+	Xil_DCacheFlushRange((UINTPTR)start_addr, test_size);
+    xil_printf("  Done.\r\n");
 	timer_print_speed(timer_measure_stop(), test_size);
-	xil_printf("test_mem_cpu: Validating ... ");
+	xil_printf("  Validating ... ");
 
 	if (memcmp((void *)start_addr, (void *)shadow_addr, test_size) == 0) {
-		xil_printf("OK\r\n");
+		xil_printf("OK.\r\n");
 	}
 	else {
 		printb("START Address", (void *)(start_addr+test_size-128), 128);
 		printb("START Address", (void *)(shadow_addr+test_size-128), 128);
-		xil_printf("FAIL\r\n");
+		xil_printf("FAIL.\r\n");
 	}
 	xil_printf("\r\n");
 }
 
-static void test_mem_cpu_random(void)
+uint64_t test_mem_cpu_random(void)
 {
 	if (!memory_is_initialized) {
 		mem_initialize();
 	}
 
-	xil_printf("\r\ntest_mem_cpu_random: src:0x%08lx, dst:0x%08lx, size: %luMB ... ", start_addr, shadow_addr, test_size/(1024*1024));
+	xil_printf("\r\ntest_mem_cpu (random): src:0x%08lx, dst:0x%08lx, size: %luMB ...\r\n", start_addr, shadow_addr, test_size/(1024*1024));
 	timer_measure_start();
-
-	/* Read address value from memory cell and use it as next address. This will cause a lot of
-	 * random read jumps through the memory
-	 */
 
 	volatile uint32_t *ptr = (uint32_t *)start_addr;
 	volatile uint32_t next = 0;
 	uint32_t i = 0;
+	uint64_t checksum = 0;
 	for (i=0; i<(test_size/sizeof(uint32_t)); i++) {
 		next = ptr[next];
+		checksum = checksum+next;
+		//xil_printf("ptr[%08u]=%08u, checksum=%08u\r\n", next, ptr[next], checksum);
 	}
 
 	Xil_DCacheFlushRange((UINTPTR)start_addr, test_size);
-    xil_printf("Done.\r\n");
+    xil_printf("  Done. Checksum: %u\r\n", (uint)checksum);
 	timer_print_speed(timer_measure_stop(), test_size);
 	xil_printf("\r\n");
+	return checksum;
 }
 
 static uint32_t timer_init(void)
