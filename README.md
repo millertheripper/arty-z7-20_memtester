@@ -1,9 +1,60 @@
 # Arty-Z7-20: Memory performance tester
-This project demonstrates PS RAM speed, random vs. sequential access. Also it is compared how fast the PL is in comparison to the PS. PL access to PS RAM is done by a HLS IP core. Software is implemented as Vitis Bare Metal project.
-- Sequential READ access from PS
-- Random READ access from PS
-- Sequential READ access from PL
-- Random READ access from PL
+This project demonstrates PS RAM speed, random vs. sequential vs. DMA access. Software is implemented as Vitis Bare Metal project.
+- memcpy to DRAM from PS
+- random read access to DRAM from PS
+- DMA transfer to DRAM from AXI DMA
+- random read access to DRAM from HLS IP
+
+This program also shows the influence of CPU L0 and L1 caches to the DRAM access speed. It also can be seen that the AXI PL to PS interface adds some amount of delay to each memory access as it is a bit slower than the CPU when doing random memory acesses.
+
+```bash
+**************************************************
+*        Arty Z7 Memory Performance Tester       *
+**************************************************
+* Level 1 I Cache: DISABLED
+* Level 1 D Cache: DISABLED
+* Level 2 D Cache: DISABLED
+* Test start  address: 0x08000000 (128MB)
+* Test shadow address: 0x10000000 (256MB)
+* Test data size: 8MB
+* Memory initialized: NO
+**************************************************
+
+0 - Enable/Disable L1 Instruction Cache
+1 - Enable/Disable L1 Data Cache
+2 - Enable/Disable L2 Data Cache
+3 - Change test data size
+4 - Initialize memory with random data
+5 - Run CPU memory performance test (memcpy)
+6 - Run CPU memory performance test (random)
+7 - Run FPGA (DMA) memory performance test (memcpy)
+8 - Run FPGA (HLS) memory performance test (random)
+
+
+Enter a selection: 5
+
+test_mem_cpu (memcpy): src:0x08000000, dst:0x10000000, size: 8MB ...   Done.
+  Time: 0.632053 s, Speed: 12.66 MB/s
+  Validating ... OK.
+
+Enter a selection: 6
+
+test_mem_cpu (random): src:0x08000000, dst:0x10000000, size: 8MB ...
+  Done. Checksum: 1128169227
+  Time: 0.665186 s, Speed: 12.03 MB/s
+
+Enter a selection: 7
+
+test_mem_dma (memcpy): src:0x08000000, dst:0x10000000, size: 8MB ...   Done.
+  Time: 0.009416 s, Speed: 849.58 MB/s
+  Validating ... OK.
+
+Enter a selection: 8
+
+hls_mem_perf_tester: src:0x08000000, size: 8MB .........
+  Done. Checksum: 1128169227
+  Time: 0.800014 s, Speed: 10.00 MB/s
+```
 
 ## Hardware Requirements:
 - Digilent Arty-Z7-20
