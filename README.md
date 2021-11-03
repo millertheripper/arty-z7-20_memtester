@@ -17,7 +17,7 @@ This program also shows the influence of CPU L0 and L1 caches to the DRAM access
 * Test start  address: 0x08000000 (128MB)
 * Test shadow address: 0x10000000 (256MB)
 * Test data size: 8MB
-* Memory initialized: NO
+* Memory initialized: YES
 **************************************************
 
 0 - Enable/Disable L1 Instruction Cache
